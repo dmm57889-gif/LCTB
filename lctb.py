@@ -668,19 +668,46 @@ def main():
     # Week range selection
     st.sidebar.subheader("📅 Week Range")
     
-    # Calculate default values from calendar if available
-    default_start = "2025-19"
-    default_end = "2025-25"
+    # Initialize session state for week range
+    if 'start_week' not in st.session_state:
+        st.session_state.start_week = "2025-19"
+    if 'end_week' not in st.session_state:
+        st.session_state.end_week = "2025-25"
     
+    # Update default values when calendar is loaded
     if 'calendar' in excel_files:
         try:
-            default_start, default_end = get_default_week_range(excel_files['calendar'])
-            st.sidebar.info(f"Default range calculated from calendar: {default_start} to {default_end}")
-        except:
-            st.sidebar.warning("Could not calculate default range from calendar, using fallback values")
+            calendar_df = excel_files['calendar'].copy()
+            calendar_df[['anno', 'settimana']] = calendar_df['YearWeek'].str.split('-', n=1, expand=True)
+            calendar_df['anno'] = calendar_df['anno'].astype(int)
+            calendar_df['settimana'] = calendar_df['settimana'].astype(int)
+            calendar_sorted = calendar_df.sort_values(by=['anno', 'settimana'])
+            
+            # Get min week
+            min_week = calendar_sorted.iloc[0]['YearWeek']
+            
+            # Get max week - 10
+            max_week = calendar_sorted.iloc[-1]['YearWeek']
+            max_year, max_week_num = map(int, max_week.split('-'))
+            end_week_num = max_week_num - 10
+            
+            if end_week_num <= 0:
+                end_week_num = 52 + end_week_num
+                max_year -= 1
+            
+            calculated_end_week = f"{max_year}-{end_week_num:02d}"
+            
+            # Update session state only if values have changed
+            if st.session_state.start_week != min_week or st.session_state.end_week != calculated_end_week:
+                st.session_state.start_week = min_week
+                st.session_state.end_week = calculated_end_week
+                st.sidebar.success(f"Week range updated from calendar: {min_week} to {calculated_end_week}")
+        
+        except Exception as e:
+            st.sidebar.warning(f"Could not calculate range from calendar: {e}")
     
-    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value=default_start)
-    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value=default_end)
+    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value=st.session_state.start_week)
+    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value=st.session_state.end_week)
     
     # Check if all files are uploaded
     all_excel_uploaded = len(excel_files) == len(required_excel_files)
@@ -1013,6 +1040,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
