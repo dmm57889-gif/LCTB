@@ -541,6 +541,28 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
         # Filter by minimum delivered quantity
         merged_df2 = merged_df2[merged_df2["Delivered item"] >= 5000]
         
+        # Reorder columns according to specified order
+        desired_column_order = [
+            'Function', 'Season', 'Cod Department', 'Des Department', 'Item Code', 'Des item',
+            'Sales item', 'Delivered item', 'Sales 4th Normalizzata', 'ST item', 'ST 4th Normalizzato',
+            'Cod Category', 'Subcategory', 'APC', 'Promotion', 'Commercial YearWeek', 'Commercial YearMonth',
+            'ST_Cluster', 'Metodo Cluster', 'Delta ST P2W', 'Delta ST P3W', 'TFI', 'Proposal',
+            'First Tracking YearWeek', 'First Planned Tracking YearWeek', 'First Sale YearWeek',
+            'Weeks since First Sale Date', 'Intake Quantity', 'Displayed Quantity', 'Recycled',
+            '% Stores with Tracking within 6 weeks', '% Store with Tracking',
+            'AVG ST Function per CommercialMonth', 'AVG ST Function', 'ST Difference', 'Segment',
+            'Retail Price', 'Stock residuo', 'SVA', 'Sconto proposto', 'Data elaborazione',
+            'Tipologia sconto applicato', 'ST alla settimana di applicazione dello sconto',
+            'Settimana applicazione sconto'
+        ]
+        
+        # Keep only existing columns in the desired order, plus any additional columns
+        existing_columns = [col for col in desired_column_order if col in merged_df2.columns]
+        additional_columns = [col for col in merged_df2.columns if col not in desired_column_order]
+        final_column_order = existing_columns + additional_columns
+        
+        merged_df2 = merged_df2[final_column_order]
+        
         return merged_df2
         
     except Exception as e:
@@ -950,6 +972,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
