@@ -467,11 +467,11 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
         merged_df2["TFI"] = merged_df2["Function"].map(mapping_tfi)
         merged_df2["TFI"] = merged_df2["TFI"].fillna("1,96%")
 
-# Initialize Delta ST columns right after TFI to maintain column order
-if 'Delta ST P2W' not in merged_df2.columns:
-    merged_df2['Delta ST P2W'] = '-'
-if 'Delta ST P3W' not in merged_df2.columns:
-    merged_df2['Delta ST P3W'] = '-'
+        # Initialize Delta ST columns right after TFI to maintain column order
+        if 'Delta ST P2W' not in merged_df2.columns:
+            merged_df2['Delta ST P2W'] = '-'
+        if 'Delta ST P3W' not in merged_df2.columns:
+            merged_df2['Delta ST P3W'] = '-'
         
         # Calculate stock and SVA
         merged_df2["Sales item"] = pd.to_numeric(merged_df2["Sales item"], errors='coerce')
@@ -540,6 +540,28 @@ if 'Delta ST P3W' not in merged_df2.columns:
         
         # Filter by minimum delivered quantity
         merged_df2 = merged_df2[merged_df2["Delivered item"] >= 5000]
+        
+        # Reorder columns according to specified order
+        desired_column_order = [
+            'Function', 'Season', 'Cod Department', 'Des Department', 'Item Code', 'Des item',
+            'Sales item', 'Delivered item', 'Sales 4th Normalizzata', 'ST item', 'ST 4th Normalizzato',
+            'Cod Category', 'Subcategory', 'APC', 'Promotion', 'Commercial YearWeek', 'Commercial YearMonth',
+            'ST_Cluster', 'Metodo Cluster', 'Delta ST P2W', 'Delta ST P3W', 'TFI', 'Proposal',
+            'First Tracking YearWeek', 'First Planned Tracking YearWeek', 'First Sale YearWeek',
+            'Weeks since First Sale Date', 'Intake Quantity', 'Displayed Quantity', 'Recycled',
+            '% Stores with Tracking within 6 weeks', '% Store with Tracking',
+            'AVG ST Function per CommercialMonth', 'AVG ST Function', 'ST Difference', 'Segment',
+            'Retail Price', 'Stock residuo', 'SVA', 'Sconto proposto', 'Data elaborazione',
+            'Tipologia sconto applicato', 'ST alla settimana di applicazione dello sconto',
+            'Settimana applicazione sconto'
+        ]
+        
+        # Keep only existing columns in the desired order, plus any additional columns
+        existing_columns = [col for col in desired_column_order if col in merged_df2.columns]
+        additional_columns = [col for col in merged_df2.columns if col not in desired_column_order]
+        final_column_order = existing_columns + additional_columns
+        
+        merged_df2 = merged_df2[final_column_order]
         
         return merged_df2
         
@@ -645,8 +667,47 @@ def main():
     
     # Week range selection
     st.sidebar.subheader("📅 Week Range")
-    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value="2025-19")
-    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value="2025-25")
+    
+    # Initialize session state for week range
+    if 'start_week' not in st.session_state:
+        st.session_state.start_week = "2025-19"
+    if 'end_week' not in st.session_state:
+        st.session_state.end_week = "2025-25"
+    
+    # Update default values when calendar is loaded
+    if 'calendar' in excel_files:
+        try:
+            calendar_df = excel_files['calendar'].copy()
+            calendar_df[['anno', 'settimana']] = calendar_df['YearWeek'].str.split('-', n=1, expand=True)
+            calendar_df['anno'] = calendar_df['anno'].astype(int)
+            calendar_df['settimana'] = calendar_df['settimana'].astype(int)
+            calendar_sorted = calendar_df.sort_values(by=['anno', 'settimana'])
+            
+            # Get min week
+            min_week = calendar_sorted.iloc[0]['YearWeek']
+            
+            # Get max week - 10
+            max_week = calendar_sorted.iloc[-1]['YearWeek']
+            max_year, max_week_num = map(int, max_week.split('-'))
+            end_week_num = max_week_num - 10
+            
+            if end_week_num <= 0:
+                end_week_num = 52 + end_week_num
+                max_year -= 1
+            
+            calculated_end_week = f"{max_year}-{end_week_num:02d}"
+            
+            # Update session state only if values have changed
+            if st.session_state.start_week != min_week or st.session_state.end_week != calculated_end_week:
+                st.session_state.start_week = min_week
+                st.session_state.end_week = calculated_end_week
+                st.sidebar.success(f"Week range updated from calendar: {min_week} to {calculated_end_week}")
+        
+        except Exception as e:
+            st.sidebar.warning(f"Could not calculate range from calendar: {e}")
+    
+    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value=st.session_state.start_week)
+    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value=st.session_state.end_week)
     
     # Check if all files are uploaded
     all_excel_uploaded = len(excel_files) == len(required_excel_files)
@@ -921,7 +982,36 @@ def main():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 st.success("✅ Analysis completed successfully!")
-    
+
+    def get_default_week_range(calendar_df):
+        """Calculate default week range from calendar data"""
+        try:
+            # Sort calendar by year and week
+            calendar_df = calendar_df.copy()
+            calendar_df[['anno', 'settimana']] = calendar_df['YearWeek'].str.split('-', n=1, expand=True)
+            calendar_df['anno'] = calendar_df['anno'].astype(int)
+            calendar_df['settimana'] = calendar_df['settimana'].astype(int)
+            calendar_sorted = calendar_df.sort_values(by=['anno', 'settimana'])
+            
+            # Get min and max weeks
+            min_week = calendar_sorted.iloc[0]['YearWeek']
+            max_week = calendar_sorted.iloc[-1]['YearWeek']
+            
+            # Calculate end week (max week - 10)
+            max_year, max_week_num = map(int, max_week.split('-'))
+            end_week_num = max_week_num - 10
+            
+            if end_week_num <= 0:
+                end_week_num = 52 + end_week_num
+                max_year -= 1
+            
+            end_week = f"{max_year}-{end_week_num:02d}"
+            
+            return min_week, end_week
+        except:
+            # Fallback to original values if calculation fails
+            return "2025-19", "2025-25"
+        
     # Instructions
     with st.expander("📖 Instructions & Help"):
         st.markdown("""
@@ -950,5 +1040,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
 
 
