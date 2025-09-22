@@ -644,7 +644,8 @@ def main():
     
     # Check if all files are uploaded
     all_excel_uploaded = len(excel_files) == len(required_excel_files)
-    all_models_uploaded = discount_model is not None and gradient_model is not None
+    # Models are now optional
+    models_available = discount_model is not None or gradient_model is not None
     
     # Status display
     st.subheader("📋 Upload Status")
@@ -659,26 +660,25 @@ def main():
                 st.write(f"❌ {label}")
     
     with col2:
-        st.write("**🤖 Model Files:**")
+        st.write("**🤖 Model Files (Optional):**")
         if discount_model:
             st.write("✅ Keras model")
         else:
-            st.write("❌ Keras model")
+            st.write("⭕ Keras model (optional)")
         
         if gradient_model:
             st.write("✅ Gradient boosting model")
         else:
-            st.write("❌ Gradient boosting model")
+            st.write("⭕ Gradient boosting model (optional)")
     
-    # Processing button
     if st.sidebar.button("🚀 Process Analysis", type="primary"):
         if not all_excel_uploaded:
             st.error("❌ Please upload all required Excel files.")
             return
+        # Models are optional - show warning if none uploaded but continue processing
+        if not models_available:
+            st.warning("⚠️ No model files uploaded. Processing will continue without model predictions.")
         
-        if not all_models_uploaded:
-            st.error("❌ Please upload both model files.")
-            return
         
         with st.spinner("⏳ Processing analysis... This may take several minutes."):
             # Process the analysis
@@ -944,4 +944,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
