@@ -466,6 +466,12 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
         mapping_tfi = goals.set_index("Function")["Teorethical Increase %"].apply(format_tfi).to_dict()
         merged_df2["TFI"] = merged_df2["Function"].map(mapping_tfi)
         merged_df2["TFI"] = merged_df2["TFI"].fillna("1,96%")
+
+# Initialize Delta ST columns right after TFI to maintain column order
+if 'Delta ST P2W' not in merged_df2.columns:
+    merged_df2['Delta ST P2W'] = '-'
+if 'Delta ST P3W' not in merged_df2.columns:
+    merged_df2['Delta ST P3W'] = '-'
         
         # Calculate stock and SVA
         merged_df2["Sales item"] = pd.to_numeric(merged_df2["Sales item"], errors='coerce')
@@ -944,5 +950,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
