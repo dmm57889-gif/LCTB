@@ -667,8 +667,20 @@ def main():
     
     # Week range selection
     st.sidebar.subheader("📅 Week Range")
-    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value="2025-19")
-    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value="2025-25")
+    
+    # Calculate default values from calendar if available
+    default_start = "2025-19"
+    default_end = "2025-25"
+    
+    if 'calendar' in excel_files:
+        try:
+            default_start, default_end = get_default_week_range(excel_files['calendar'])
+            st.sidebar.info(f"Default range calculated from calendar: {default_start} to {default_end}")
+        except:
+            st.sidebar.warning("Could not calculate default range from calendar, using fallback values")
+    
+    start_week = st.sidebar.text_input("Start Week (YYYY-WW)", value=default_start)
+    end_week = st.sidebar.text_input("End Week (YYYY-WW)", value=default_end)
     
     # Check if all files are uploaded
     all_excel_uploaded = len(excel_files) == len(required_excel_files)
@@ -943,7 +955,36 @@ def main():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 st.success("✅ Analysis completed successfully!")
-    
+
+    def get_default_week_range(calendar_df):
+        """Calculate default week range from calendar data"""
+        try:
+            # Sort calendar by year and week
+            calendar_df = calendar_df.copy()
+            calendar_df[['anno', 'settimana']] = calendar_df['YearWeek'].str.split('-', n=1, expand=True)
+            calendar_df['anno'] = calendar_df['anno'].astype(int)
+            calendar_df['settimana'] = calendar_df['settimana'].astype(int)
+            calendar_sorted = calendar_df.sort_values(by=['anno', 'settimana'])
+            
+            # Get min and max weeks
+            min_week = calendar_sorted.iloc[0]['YearWeek']
+            max_week = calendar_sorted.iloc[-1]['YearWeek']
+            
+            # Calculate end week (max week - 10)
+            max_year, max_week_num = map(int, max_week.split('-'))
+            end_week_num = max_week_num - 10
+            
+            if end_week_num <= 0:
+                end_week_num = 52 + end_week_num
+                max_year -= 1
+            
+            end_week = f"{max_year}-{end_week_num:02d}"
+            
+            return min_week, end_week
+        except:
+            # Fallback to original values if calculation fails
+            return "2025-19", "2025-25"
+        
     # Instructions
     with st.expander("📖 Instructions & Help"):
         st.markdown("""
@@ -972,6 +1013,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
