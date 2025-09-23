@@ -640,7 +640,7 @@ merged_df2.loc[merged_df2["Recycled"] == "Sì", "AVG ST Function per CommercialM
         st.info(f"Articoli ricondizionati prima del filtro: {recycled_before}")
         
         # Filter by minimum delivered quantity (exclude recycled items from this filter)
-        merged_df2 = merged_df2[merged_df2["Delivered item"] >= 5000)]
+        merged_df2 = merged_df2[merged_df2["Delivered item"] >= 5000]
         
         # DEBUG: Check recycled items after filter
         recycled_after = len(merged_df2[merged_df2["Recycled"] == "Sì"])
@@ -1185,6 +1185,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
