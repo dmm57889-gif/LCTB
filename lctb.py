@@ -10,12 +10,13 @@ from PIL import Image, ImageFile, PngImagePlugin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from openpyxl import load_workbook
 
 warnings.filterwarnings('ignore')
 
 # Configurazione pagina Streamlit
 st.set_page_config(
-    page_title="Discount Prediction App",
+    page_title="generatore Proposta Last Chance To Buy ",
     page_icon="💰",
     layout="wide"
 )
@@ -24,7 +25,7 @@ st.set_page_config(
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 PngImagePlugin.MAX_TEXT_CHUNK = 10000000
 
-st.title("💰 Last Chance To Buy script")
+st.title("💰 Generatore proposta Last Chance To Buy")
 st.markdown("---")
 
 # Sidebar per input utente
@@ -148,8 +149,8 @@ def download_and_preprocess(index, url, category, session):
         st.warning(f"Errore nel processare l'immagine {url}: {e}")
         return None
 
-def create_styled_excel(df, category):
-    """Crea un file Excel formattato"""
+def create_styled_excel(df, category, sequence_file=None):
+    """Crea un file Excel formattato con styling avanzato"""
     elaboration_date = datetime.today().strftime('%d-%m-%Y')
     
     if int(category) == 31:
@@ -167,8 +168,124 @@ def create_styled_excel(df, category):
         df.to_excel(writer, index=False, sheet_name='Data')
     
     output.seek(0)
-    return output, filename
-
+    
+    # Carica il workbook per la formattazione avanzata
+    wb = load_workbook(output)
+    ws = wb.active
+    
+    # Configurazione formattazione colonne
+    header_config = {
+        "Proposal": {
+            "font": Font(bold=True),
+            "fill": PatternFill(start_color="EBF1DE", end_color="EBF1DE", fill_type="solid")
+        },
+        "ST item": {
+            "round": 4,
+            "num_format": '0.0000',
+            "font": Font(bold=True),
+            "fill": PatternFill(start_color="DAEEF3", end_color="DAEEF3", fill_type="solid")
+        },
+        "Sales item": {
+            "round": 2,
+            "num_format": '0.00'
+        },
+        "Delivered item": {
+            "round": 2,
+            "num_format": '0.00'
+        },
+        "SVA": {
+            "round": 2,
+            "num_format": '0.00'
+        },
+        "Stock residuo": {
+            "round": 2,
+            "num_format": '0.00'
+        },
+        "Total Item Tracked": {
+            "round": 4,
+            "num_format": '0.0000'
+        },
+        "TFI": {
+            "fill": PatternFill(start_color="EFF7FF", end_color="EFF7FF", fill_type="solid")
+        },
+        "Delta ST P2W": {
+            "fill": PatternFill(start_color="EFF7FF", end_color="EFF7FF", fill_type="solid")
+        },
+        "Delta ST P3W": {
+            "fill": PatternFill(start_color="EFF7FF", end_color="EFF7FF", fill_type="solid")
+        }
+    }
+    
+    # Mappa header alle colonne
+    header_columns = {}
+    for cell in ws[1]:
+        if cell.value in header_config:
+            header_columns[cell.value] = cell.column
+    
+    # Applica formattazione per colonne numeriche
+    for header, config in header_config.items():
+        if header not in header_columns or header in ["Delta ST P2W", "Delta ST P3W"]:
+            continue
+        
+        col_idx = header_columns[header]
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                # Sostituisce "-" con 0 per colonne numeriche
+                if cell.value == "-" and "round" in config:
+                    cell.value = 0
+                
+                # Applica arrotondamento e formato numerico
+                if isinstance(cell.value, (int, float)) and "round" in config:
+                    cell.value = round(cell.value, config["round"])
+                    cell.number_format = config["num_format"]
+                
+                # Applica font e riempimento
+                if "font" in config:
+                    cell.font = config["font"]
+                if "fill" in config:
+                    cell.fill = config["fill"]
+    
+    # Formattazione speciale per Delta ST P2W e P3W (solo colore, non numerico)
+    for header in ["Delta ST P2W", "Delta ST P3W"]:
+        if header in header_columns:
+            col_idx = header_columns[header]
+            config = header_config[header]
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=col_idx, max_col=col_idx):
+                for cell in row:
+                    if "font" in config:
+                        cell.font = config["font"]
+                    if "fill" in config:
+                        cell.fill = config["fill"]
+    
+    # Evidenzia in rosso articoli con sequenza (se presente)
+    if sequence_file is not None:
+        # Trova colonna Item Code
+        item_code_col = None
+        for cell in ws[1]:
+            if cell.value == "Item Code":
+                item_code_col = cell.column
+                break
+        
+        if item_code_col is not None:
+            # Crea set degli item code con sequenza
+            cod_items_seq = set()
+            if 'Settimana applicazione sconto' in df.columns:
+                cod_items_seq = set(df[df['Settimana applicazione sconto'] != '-']['Item Code'])
+            
+            # Applica font rosso
+            red_font = Font(color="FF0000")
+            for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+                item_value = row[item_code_col - 1].value
+                if str(item_value) in cod_items_seq:
+                    for cell in row:
+                        cell.font = red_font
+    
+    # Salva in BytesIO
+    formatted_output = BytesIO()
+    wb.save(formatted_output)
+    formatted_output.seek(0)
+    
+    return formatted_output, filename
 # Controllo file obbligatori
 required_files = [st_item_file, file_A, file_B, calendar_file, tracking_file, goals_file, segment_file, images_file]
 if not all(required_files):
@@ -666,7 +783,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         st.dataframe(merged_df2.head(20), use_container_width=True)
         
         # Download file Excel
-        excel_buffer, filename = create_styled_excel(merged_df2, category)
+        excel_buffer, filename = create_styled_excel(merged_df2, category, sequence_file)
         
         st.download_button(
             label="📥 Scarica File Excel",
@@ -732,10 +849,5 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
-
-
-
-
-
 
 
