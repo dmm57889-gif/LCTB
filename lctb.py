@@ -206,6 +206,24 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         goals = pd.read_excel(goals_file)
         segment = pd.read_excel(segment_file)
         images_df = pd.read_excel(images_file)
+
+        # --- keep originals for special processing (VERY IMPORTANT) ---
+        st_item_original = st_item.copy()
+        A_original = A.copy()
+        B_original = B.copy()
+        
+        # normalizziamo la colonna Recycled (gestisce 'Sì','Si','SI','si' ecc.)
+        if 'Recycled' in A_original.columns:
+            A_original['Recycled'] = A_original['Recycled'].astype(str).str.strip()
+            A_original['Recycled'] = A_original['Recycled'].replace(
+                {r'^(si|sì|SI|Si|SÌ)$': 'Sì'}, regex=True
+            )
+        else:
+            st.warning("Attenzione: colonna 'Recycled' non trovata in A_original.")
+        
+        # debug rapido per verificare che ci siano articoli ricondizionati
+        st.info(f"Recycled counts (original A): {A_original['Recycled'].value_counts().to_dict()}")
+
         
         # Preparazione calendario
         calendar['YearWeek'] = calendar['YearWeek'].astype(str)
@@ -363,13 +381,9 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         # Gestione articoli riciclati
         status_text.text("♻️ Elaborazione articoli ricondizionati...")
 
-        # Process recycled items using ORIGINAL (unfiltered) data
-        st_item_raw = st_item.copy()  # Use original st_item data
-        A_raw = A.copy()  # Use original A data
-        A_recycled = A_raw[A_raw["Recycled"] == "Sì"].copy()
-        
-        # Merge recycled items with original st_item data (not filtered by weeks)
-        st_item_recycled = st_item_raw.merge(A_recycled, on="Item Code", how='inner')
+        # Use ORIGINAL (unfiltered) data for recycled processing
+        A_recycled = A_original[A_original["Recycled"] == "Sì"].copy()
+        st_item_recycled = st_item_original.merge(A_recycled, on="Item Code", how='inner')
         df_recycled = st_item_recycled.copy()
         
         st.info(f"Articoli ricondizionati trovati (prima del filtro settimane): {len(df_recycled)}")
@@ -392,7 +406,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         # Process B data for recycled items using ORIGINAL B data
         recycled_items = set(df_recycled["Item Code"])
-        B_recycled = B[B["Item Code"].isin(recycled_items)].copy()
+        B_recycled = B_original[B_original["Item Code"].isin(recycled_items)].copy()
         
         # Apply remove_leading_zero to B_recycled (this function should be defined earlier)
         def remove_leading_zero(year_week):
@@ -718,6 +732,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
