@@ -390,7 +390,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         # Categorize recycled items by function only (not by month)
         for func in df_recycled["Function"].unique():
-            st_percentiles = st_item_raw[st_item_raw["Function"] == func]["ST item"].quantile([0.25, 0.5, 0.75])
+            st_percentiles = st_item_original[st_item_original["Function"] == func]["ST item"].quantile([0.25, 0.5, 0.75])
             
             def categorize_recycled(row):
                 if row["ST item"] <= st_percentiles.iloc[0]:  # 0.25 percentile
@@ -732,6 +732,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
