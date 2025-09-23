@@ -151,6 +151,24 @@ def download_and_preprocess(index, url, category, session):
 
 def create_styled_excel(df, category, sequence_file=None):
     """Crea un file Excel formattato con styling avanzato"""
+    column_order = [
+        'Function', 'Season', 'Cod Department', 'Des Department', 'Item Code', 'Des item',
+        'Sales item', 'Delivered item', 'Sales 4th Normalizzata', 'ST item', 'ST 4th Normalizzato',
+        'Cod Category', 'Subcategory', 'APC', 'Promotion', 'Commercial YearWeek', 'Commercial YearMonth',
+        'ST_Cluster', 'Metodo Cluster', 'Delta ST P2W', 'Delta ST P3W', 'TFI', 'Proposal',
+        'First Tracking YearWeek', 'First Planned Tracking YearWeek', 'First Sale YearWeek',
+        'Weeks since First Sale Date', 'Intake Quantity', 'Displayed Quantity', 'Recycled',
+        '% Stores with Tracking within 6 weeks', '% Store with Tracking', 'Total Item Tracked',
+        'Segment', 'Retail Price', 'Stock residuo', 'SVA', 'Sconto proposto', 'Data elaborazione'
+    ]
+    
+    # Riordina le colonne del DataFrame
+    existing_columns = [col for col in column_order if col in df.columns]
+    extra_columns = [col for col in df.columns if col not in column_order]
+    final_column_order = existing_columns + extra_columns
+    df = df[final_column_order]
+    # FINE RIGHE DA AGGIUNGERE
+    
     elaboration_date = datetime.today().strftime('%d-%m-%Y')
     
     if int(category) == 31:
@@ -849,5 +867,6 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
