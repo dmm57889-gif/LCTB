@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 # Configurazione pagina Streamlit
 st.set_page_config(
-    page_title="generatore Proposta Last Chance To Buy ",
+    page_title="Generatore Proposta Last Chance To Buy ",
     page_icon="💰",
     layout="wide"
 )
@@ -357,7 +357,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
             st.warning("Attenzione: colonna 'Recycled' non trovata in A_original.")
         
         # debug rapido per verificare che ci siano articoli ricondizionati
-        st.info(f"Recycled counts (original A): {A_original['Recycled'].value_counts().to_dict()}")
+        #st.info(f"Recycled counts (original A): {A_original['Recycled'].value_counts().to_dict()}")
 
         
         # Preparazione calendario
@@ -521,7 +521,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         st_item_recycled = st_item_original.merge(A_recycled, on="Item Code", how='inner')
         df_recycled = st_item_recycled.copy()
         
-        st.info(f"Articoli ricondizionati trovati (prima del filtro settimane): {len(df_recycled)}")
+        #st.info(f"Articoli ricondizionati trovati (prima del filtro settimane): {len(df_recycled)}")
         
         # Categorize recycled items by function only (not by month)
         for func in df_recycled["Function"].unique():
@@ -639,7 +639,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         df_recycled['Total Item Tracked'] = "-"
         df_recycled['First Planned Tracking YearWeek'] = "-"
         
-        st.info(f"Articoli ricondizionati processati: {len(df_recycled)}")
+        #st.info(f"Articoli ricondizionati processati: {len(df_recycled)}")
             
         merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
         
@@ -867,6 +867,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
