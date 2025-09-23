@@ -492,7 +492,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         st.info(f"Articoli ricondizionati processati: {len(df_recycled)}")
             
-            merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
+        merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
         
         progress_bar.progress(80)
         
@@ -718,5 +718,6 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
