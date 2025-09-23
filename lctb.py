@@ -574,8 +574,8 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
             merged_df2.groupby(["Function"])["ST item"].transform("mean").round(4)
         )
 
-# Set specific values for recycled items
-merged_df2.loc[merged_df2["Recycled"] == "Sì", "AVG ST Function per CommercialMonth"] = "-"
+        # Set specific values for recycled items
+        merged_df2.loc[merged_df2["Recycled"] == "Sì", "AVG ST Function per CommercialMonth"] = "-"
         
         # Include all segments - no filtering
         merged_df2 = pd.merge(merged_df2, segment, left_on="Item Code", right_on="Cod item", how="left")
@@ -1185,6 +1185,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
