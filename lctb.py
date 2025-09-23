@@ -436,16 +436,135 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
                 if item_index:
                     item_index = item_index[0]
                     df_clusters.at[item_index, 'Proposal'] = proposal
+
+        # Process recycled items
+        st_item_raw = files_dict['st_item']  # Use original st_item data
+        A_raw = files_dict['A']  # Use original A data
+        A_recycled = A_raw[A_raw["Recycled"] == "Sì"].copy()
+        st_item_recycled = st_item_raw.merge(A_recycled, on="Item Code", how='inner')
+        df_recycled = st_item_recycled.copy()
         
+        # Categorize recycled items by function only (not by month)
+        for func in df_recycled["Function"].unique():
+            st_percentiles = st_item_raw[st_item_raw["Function"] == func]["ST item"].quantile([0.25, 0.5, 0.75])
+            
+            def categorize_recycled(row):
+                if row["ST item"] <= st_percentiles.iloc[0]:  # 0.25 percentile
+                    return 'Basso'
+                elif row["ST item"] <= st_percentiles.iloc[1]:  # 0.5 percentile
+                    return 'Medio Basso'
+                elif row["ST item"] <= st_percentiles.iloc[2]:  # 0.75 percentile
+                    return 'Medio Alto'
+                else:
+                    return 'Alto'
+            
+            df_recycled.loc[df_recycled["Function"] == func, "ST_Cluster"] = df_recycled[df_recycled["Function"] == func].apply(categorize_recycled, axis=1)
+        
+        # Process B data for recycled items
+        recycled_items = set(df_recycled["Item Code"])
+        B_recycled = B[B["Item Code"].isin(recycled_items)].copy()
+        
+        # Apply Delta ST calculations for recycled items
+        for index, row in df_recycled.iterrows():
+            item = row["Item Code"]
+            parts = current_week.split("-")
+            week_number = int(parts[1])
+            
+            if week_number != 1:
+                week_number_p2w = str(week_number)
+                week_number_p3w = str(week_number - 1)
+            else:
+                week_number_p2w = "52"
+                week_number_p3w = "51"
+            
+            week_p2w = parts[0] + "-" + week_number_p2w
+            week_p3w = parts[0] + "-" + week_number_p3w
+            
+            p2w_data = B_recycled.loc[(B_recycled["Item Code"] == item) & (B_recycled["YearWeek"] == week_p2w), "Delta ST PW"]
+            p3w_data = B_recycled.loc[(B_recycled["Item Code"] == item) & (B_recycled["YearWeek"] == week_p3w), "Delta ST PW"]
+            
+            p2w = p2w_data.values[0] if not p2w_data.empty else None
+            p3w = p3w_data.values[0] if not p3w_data.empty else None
+            
+            def format_percent(x):
+                if x is None:
+                    return "-"
+                else:
+                    return f"{x*100:.2f}%".replace('.', ',')
+            
+            value_p2w = format_percent(p2w)
+            value_p3w = format_percent(p3w)
+            
+            # Get threshold from goals
+            mask_function = (goals['Function'] == row["Function"])
+            if not goals.loc[mask_function].empty:
+                goal_row = goals.loc[mask_function].iloc[0]
+                theoretical_increase = goal_row['Teorethical Increase %']
+                num_life_weeks = goal_row['NumLifeWeeks']
+                if num_life_weeks == -1:
+                    threshold = 0.025
+                else:
+                    threshold = 0.75 * theoretical_increase
+            else:
+                threshold = 0.0196 
+                theoretical_increase = 0.0196
+            
+            cluster = row["ST_Cluster"]
+            
+            # Apply proposal logic
+            if p2w is not None and p2w > theoretical_increase * 1.25:
+                proposal = "Nessuno Sconto"
+            else:
+                if cluster == "Basso":
+                    if (p2w is not None and p2w < threshold) or (p3w is not None and p3w < threshold):
+                        proposal = "Sconto Alto"
+                    else:
+                        proposal = "Sconto Medio"
+                elif cluster == "Medio Basso":
+                    if (p2w is not None and p2w < threshold) or (p3w is not None and p3w < threshold):
+                        proposal = "Sconto Medio"
+                    else:
+                        proposal = "Sconto Basso"
+                elif cluster in ["Alto", "Medio Alto"]:
+                    if p2w is not None and p2w < threshold:
+                        if p3w is not None and p3w < threshold:
+                            proposal = "Sconto Basso"
+                        else:
+                            proposal = "Nessuno Sconto"
+                    else:
+                        proposal = "Nessuno Sconto"
+            
+            # Check if item has recent first sale date
+            if row.get("Weeks since First Sale Date", 0) < 10:
+                proposal = "NESSUNA PROPOSTA (articolo rico con prima vendita troppo recente)"
+            
+            df_recycled.at[index, "Proposal"] = proposal
+            df_recycled.at[index, "Delta ST P2W"] = value_p2w
+            df_recycled.at[index, "Delta ST P3W"] = value_p3w
+        
+        # Set recycled-specific fields
+        df_recycled['Metodo Cluster'] = "Cluster funzione (articolo ricondizionato)"
+        df_recycled['% Store with Tracking'] = "-"
+        df_recycled['% Stores with Tracking within 6 weeks'] = "-"
+        df_recycled['First Tracking YearWeek'] = "-"
+        df_recycled['Intake Quantity'] = "-"
+        df_recycled['Displayed Quantity'] = "-"
+        df_recycled['Total Item Tracked'] = "-"
+        df_recycled['First Planned Tracking YearWeek'] = "-"
+        
+        # Add recycled items to main dataframe
+        merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
+
         # Merge with other data
         A_excluded = A.drop(columns=['Commercial YearWeek', 'Commercial YearMonth'], errors='ignore')
         merged_df = pd.merge(df_clusters, A_excluded, on="Item Code", how="left")
         merged_df2 = pd.merge(merged_df, tracking, on="Item Code", how="left")
         
-        # Calculate additional metrics
+       # Calculate averages (handle recycled items separately)
         merged_df2['AVG ST Function per CommercialMonth'] = merged_df2.groupby(["Function", "Commercial YearMonth"])['ST item'].transform('mean').round(4)
         merged_df2['AVG ST Function'] = merged_df2.groupby(["Function"])['ST item'].transform('mean').round(4)
         
+        # Calculate ST Difference with special handling for recycled items
         condition = merged_df2["Metodo Cluster"] == "Cluster funzione/mese commerciale"
         merged_df2["ST Difference"] = (
             merged_df2["ST item"].round(4) - 
@@ -454,6 +573,9 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
             merged_df2["ST item"].round(4) - 
             merged_df2.groupby(["Function"])["ST item"].transform("mean").round(4)
         )
+
+# Set specific values for recycled items
+merged_df2.loc[merged_df2["Recycled"] == "Sì", "AVG ST Function per CommercialMonth"] = "-"
         
         # Include all segments - no filtering
         merged_df2 = pd.merge(merged_df2, segment, left_on="Item Code", right_on="Cod item", how="left")
@@ -467,6 +589,21 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
         merged_df2["TFI"] = merged_df2["Function"].map(mapping_tfi)
         merged_df2["TFI"] = merged_df2["TFI"].fillna("1,96%")
 
+        # Replace values with "-" for specific columns, excluding Delta ST columns
+        cols_da_sostituire = [col for col in merged_df2.columns if col not in ["Delta ST P2W", "Delta ST P3W"]]
+        merged_df2[cols_da_sostituire] = merged_df2[cols_da_sostituire].replace({0: "-", -1: "Nessuna Vendita"})
+        
+        # Restore numeric values for calculation columns
+        merged_df2['ST item'] = merged_df2['ST item'].replace('-', 0)
+        merged_df2['ST Difference'] = merged_df2['ST Difference'].replace('-', 0)
+        merged_df2['Sales item'] = merged_df2['Sales item'].replace(np.nan, 0)
+        
+        # Convert specific columns to string and handle special values
+        string_columns = ["First Tracking YearWeek", "First Planned Tracking YearWeek", "First Sale YearWeek", 
+                         "Commercial YearWeek", "% Stores with Tracking within 6 weeks", "% Store with Tracking"]
+        for col in string_columns:
+            merged_df2[col] = merged_df2[col].replace({0: "-", np.nan: "-"}).astype(str)
+    
         # Initialize Delta ST columns right after TFI to maintain column order
         if 'Delta ST P2W' not in merged_df2.columns:
             merged_df2['Delta ST P2W'] = '-'
@@ -1040,6 +1177,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
