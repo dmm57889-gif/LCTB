@@ -635,8 +635,19 @@ merged_df2.loc[merged_df2["Recycled"] == "Sì", "AVG ST Function per CommercialM
         elaboration_date = datetime.today().strftime('%d-%m-%Y')
         merged_df2['Data elaborazione'] = elaboration_date
         
-        # Filter by minimum delivered quantity
-        merged_df2 = merged_df2[merged_df2["Delivered item"] >= 5000]
+        # DEBUG: Check recycled items before filter
+        recycled_before = len(merged_df2[merged_df2["Recycled"] == "Sì"])
+        st.info(f"Articoli ricondizionati prima del filtro: {recycled_before}")
+        
+        # Filter by minimum delivered quantity (exclude recycled items from this filter)
+        merged_df2 = merged_df2[
+            (merged_df2["Delivered item"] >= 5000) | 
+            (merged_df2["Recycled"] == "Sì")
+        ]
+        
+        # DEBUG: Check recycled items after filter
+        recycled_after = len(merged_df2[merged_df2["Recycled"] == "Sì"])
+        st.info(f"Articoli ricondizionati dopo il filtro: {recycled_after}")
 
         # Process sequenza articoli sconto if provided
         if sequenza_df is not None:
@@ -1177,6 +1188,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
