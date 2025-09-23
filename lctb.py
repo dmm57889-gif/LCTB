@@ -436,6 +436,14 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
                 if item_index:
                     item_index = item_index[0]
                     df_clusters.at[item_index, 'Proposal'] = proposal
+        
+        # Add recycled items to main dataframe
+        merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
+
+        # Merge with other data
+        A_excluded = A.drop(columns=['Commercial YearWeek', 'Commercial YearMonth'], errors='ignore')
+        merged_df = pd.merge(df_clusters, A_excluded, on="Item Code", how="left")
+        merged_df2 = pd.merge(merged_df, tracking, on="Item Code", how="left")
 
         # Process recycled items
         st_item_raw = files_dict['st_item']  # Use original st_item data
@@ -551,14 +559,6 @@ def process_discount_analysis(files_dict, week_range, discount_model, gradient_m
         df_recycled['Displayed Quantity'] = "-"
         df_recycled['Total Item Tracked'] = "-"
         df_recycled['First Planned Tracking YearWeek'] = "-"
-        
-        # Add recycled items to main dataframe
-        merged_df2 = pd.concat([merged_df2, df_recycled], ignore_index=True)
-
-        # Merge with other data
-        A_excluded = A.drop(columns=['Commercial YearWeek', 'Commercial YearMonth'], errors='ignore')
-        merged_df = pd.merge(df_clusters, A_excluded, on="Item Code", how="left")
-        merged_df2 = pd.merge(merged_df, tracking, on="Item Code", how="left")
         
        # Calculate averages (handle recycled items separately)
         merged_df2['AVG ST Function per CommercialMonth'] = merged_df2.groupby(["Function", "Commercial YearMonth"])['ST item'].transform('mean').round(4)
@@ -1185,6 +1185,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
