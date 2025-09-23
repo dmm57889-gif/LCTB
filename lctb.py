@@ -24,7 +24,7 @@ st.set_page_config(
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 PngImagePlugin.MAX_TEXT_CHUNK = 10000000
 
-st.title("💰 Sistema di Previsione Sconti")
+st.title("💰 Last Chance To Buy script")
 st.markdown("---")
 
 # Sidebar per input utente
@@ -622,3 +622,4 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
