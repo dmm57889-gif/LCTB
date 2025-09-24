@@ -853,7 +853,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
     - ✅ Caricamento multiplo di file Excel
     - ✅ Filtri temporali personalizzabili
     - ✅ Categorizzazione automatica articoli
-    - ✅ Gestione articoli riciclati
+    - ✅ Gestione articoli ricondizionati
     - ✅ Integrazione modelli ML (opzionale)
     - ✅ Export formattato per Excel
     - ✅ Dashboard interattiva con metriche
@@ -867,3 +867,4 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
