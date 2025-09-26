@@ -39,10 +39,10 @@ calendar_file = st.sidebar.file_uploader("Carica file calendar.xlsx", type=['xls
 tracking_file = st.sidebar.file_uploader("Carica file % tracking per negozio.xlsx", type=['xlsx'], key="tracking")
 goals_file = st.sidebar.file_uploader("Carica file function_goals.xlsx", type=['xlsx'], key="goals")
 segment_file = st.sidebar.file_uploader("Carica file segment.xlsx", type=['xlsx'], key="segment")
-images_file = st.sidebar.file_uploader("Carica file immagini FW 25.xlsx", type=['xlsx'], key="images")
 
 # File opzionali
 st.sidebar.subheader("📊 File Opzionali")
+images_file = st.sidebar.file_uploader("Carica file immagini FW 25.xlsx", type=['xlsx'], key="images")
 sequence_file = st.sidebar.file_uploader("Carica file sequenza articoli sconto.xlsx (opzionale)", type=['xlsx'], key="sequence")
 keras_model = st.sidebar.file_uploader("Carica modello Keras (.keras)", type=['keras'], key="keras")
 pkl_model = st.sidebar.file_uploader("Carica modello PKL (.pkl)", type=['pkl'], key="pkl")
@@ -305,7 +305,7 @@ def create_styled_excel(df, category, sequence_file=None):
     
     return formatted_output, filename
 # Controllo file obbligatori
-required_files = [st_item_file, file_A, file_B, calendar_file, tracking_file, goals_file, segment_file, images_file]
+required_files = [st_item_file, file_A, file_B, calendar_file, tracking_file, goals_file, segment_file]
 if not all(required_files):
     st.warning("⚠️ Carica tutti i file obbligatori per continuare.")
     st.stop()
@@ -340,7 +340,12 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         tracking = pd.read_excel(tracking_file)
         goals = pd.read_excel(goals_file)
         segment = pd.read_excel(segment_file)
-        images_df = pd.read_excel(images_file)
+        
+        # Caricamento file immagini solo se presente
+        if images_file:
+            images_df = pd.read_excel(images_file)
+        else:
+            images_df = None
 
         # --- keep originals for special processing (VERY IMPORTANT) ---
         st_item_original = st_item.copy()
@@ -716,7 +721,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         progress_bar.progress(90)
         
         # Predizioni opzionali
-        if keras_model:
+        if keras_model and images_df is not None:
             status_text.text("🤖 Elaborazione predizioni immagini...")
             try:
                 # Carica modello Keras
@@ -740,6 +745,9 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                 st.warning(f"Errore nell'elaborazione delle immagini: {e}")
                 merged_df2["Image URL"] = "URL non presente"
                 merged_df2["Discount Prediction"] = "Errore predizione"
+        elif keras_model and images_df is None:
+            st.warning("Modello Keras caricato ma file immagini mancante. Predizioni immagini non disponibili.")
+    
         
         if pkl_model:
             status_text.text("📊 Elaborazione predizioni Delta ST...")
@@ -867,4 +875,5 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
