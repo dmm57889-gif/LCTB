@@ -732,10 +732,27 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                 import tensorflow as tf
                 model = tf.keras.models.load_model("temp_model.keras")
                 
-                st.info(f"✅ Modello Keras caricato. Input shape: {model.input_shape}")
+                st.success(f"Modello Keras caricato. Input shape: {model.input_shape}")
                 
-                # Prepara dati immagini
-                images_df.rename(columns={"Item": "Item Code"}, inplace=True)
+                # DEBUG: Mostra struttura file immagini
+                st.write("**DEBUG - Struttura file immagini:**")
+                st.write(f"Colonne disponibili: {list(images_df.columns)}")
+                st.write(f"Numero righe: {len(images_df)}")
+                st.dataframe(images_df.head(3))
+                
+                # Rinomina colonna Item
+                if "Item" in images_df.columns:
+                    images_df.rename(columns={"Item": "Item Code"}, inplace=True)
+                elif "Item Code" not in images_df.columns:
+                    st.error("ERRORE: Colonna 'Item' o 'Item Code' non trovata nel file immagini!")
+                    st.stop()
+                
+                # Verifica colonna Picture
+                if "Picture" not in images_df.columns:
+                    st.error(f"ERRORE: Colonna 'Picture' non trovata. Colonne disponibili: {list(images_df.columns)}")
+                    st.stop()
+                
+                # Merge con dati principali
                 merged_df2 = pd.merge(merged_df2, images_df[['Item Code', 'Picture']], on="Item Code", how="left")
                 merged_df2.rename(columns={"Picture": "Image URL"}, inplace=True)
                 merged_df2["Image URL"] = merged_df2["Image URL"].fillna("URL non presente")
@@ -743,107 +760,143 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                 # Inizializza colonna predizioni
                 merged_df2["Discount Prediction"] = "URL non presente"
                 
-                # Filtra solo articoli con URL validi
+                # Filtra articoli con URL validi
                 items_with_images = merged_df2[
                     (merged_df2["Image URL"] != "URL non presente") & 
-                    (merged_df2["Image URL"].notna())
+                    (merged_df2["Image URL"].notna()) &
+                    (merged_df2["Image URL"].str.startswith("http", na=False))
                 ].copy()
                 
+                st.write(f"**Articoli con URL validi:** {len(items_with_images)}/{len(merged_df2)}")
+                
                 if len(items_with_images) > 0:
-                    st.info(f"📸 Trovate {len(items_with_images)} immagini da processare...")
+                    # Mostra alcuni URL per debug
+                    st.write("**Esempio URL:**")
+                    st.write(items_with_images["Image URL"].head(3).tolist())
                     
-                    # Prepara liste per elaborazione parallela
+                    # Test download singola immagine
+                    test_url = items_with_images.iloc[0]["Image URL"]
+                    st.info(f"Test download: {test_url[:80]}...")
+                    
+                    try:
+                        test_response = requests.get(test_url, timeout=10)
+                        st.success(f"Test OK - Status: {test_response.status_code}, Size: {len(test_response.content)} bytes")
+                    except Exception as test_error:
+                        st.error(f"Test FALLITO: {test_error}")
+                        st.warning("Le immagini potrebbero non essere accessibili. Verifica gli URL.")
+                    
+                    # Prepara liste per elaborazione
                     image_data = []
                     session = requests.Session()
+                    session.headers.update({
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    })
                     
-                    # Download e preprocessing immagini in parallelo
-                    with ThreadPoolExecutor(max_workers=10) as executor:
-                        futures = []
-                        for idx, row in items_with_images.iterrows():
-                            url = row["Image URL"]
-                            future = executor.submit(download_and_preprocess, idx, url, category, session)
-                            futures.append(future)
-                        
-                        # Progress bar per download immagini
-                        download_progress = st.progress(0)
-                        completed = 0
-                        
-                        for future in as_completed(futures):
-                            result = future.result()
+                    # Limita il numero di immagini per test (rimuovi questo limite in produzione)
+                    max_images_to_process = min(50, len(items_with_images))
+                    items_to_process = items_with_images.head(max_images_to_process)
+                    
+                    st.info(f"Elaborazione {max_images_to_process} immagini...")
+                    
+                    # Download immagini con progress bar
+                    download_progress = st.progress(0)
+                    errors = []
+                    
+                    for i, (idx, row) in enumerate(items_to_process.iterrows()):
+                        url = row["Image URL"]
+                        try:
+                            result = download_and_preprocess(idx, url, category, session)
                             if result is not None:
                                 image_data.append(result)
-                            completed += 1
-                            download_progress.progress(completed / len(futures))
+                            else:
+                                errors.append(f"Errore preprocessing: {url[:50]}")
+                        except Exception as e:
+                            errors.append(f"Errore {url[:50]}: {str(e)[:50]}")
                         
-                        download_progress.empty()
+                        download_progress.progress((i + 1) / max_images_to_process)
                     
-                    st.success(f"✅ Scaricate e processate {len(image_data)}/{len(items_with_images)} immagini")
+                    download_progress.empty()
+                    
+                    # Mostra statistiche download
+                    st.write(f"**Download completati:** {len(image_data)}/{max_images_to_process}")
+                    if errors:
+                        with st.expander(f"Errori ({len(errors)})", expanded=False):
+                            for error in errors[:10]:  # Mostra primi 10 errori
+                                st.text(error)
                     
                     if len(image_data) > 0:
                         # Prepara batch per predizione
                         indices = [item[0] for item in image_data]
                         images_array = np.array([item[1] for item in image_data])
                         
-                        st.info(f"🔮 Esecuzione predizioni su {len(images_array)} immagini...")
+                        st.info(f"Shape immagini: {images_array.shape}")
                         
                         # Esegui predizioni
                         predictions = model.predict(images_array, batch_size=32, verbose=0)
                         
-                        # Mappa predizioni ai labels (adatta in base al tuo modello)
-                        # Esempio: se il modello predice probabilità di sconto
+                        st.write(f"**Shape predizioni:** {predictions.shape}")
+                        
+                        # Mappa predizioni ai labels
                         discount_labels = {
                             0: "Sconto Basso",
                             1: "Sconto Medio", 
                             2: "Sconto Alto"
                         }
                         
-                        # Se il modello restituisce probabilità (classificazione multi-classe)
-                        if predictions.shape[1] > 1:
+                        # Gestisci diversi formati output
+                        if len(predictions.shape) > 1 and predictions.shape[1] > 1:
+                            # Multi-classe
                             predicted_classes = np.argmax(predictions, axis=1)
                             predicted_labels = [discount_labels.get(cls, f"Classe {cls}") for cls in predicted_classes]
                         else:
-                            # Se il modello restituisce un singolo valore (regressione o binario)
+                            # Binario/Regressione
+                            pred_flat = predictions.flatten()
                             predicted_labels = [
                                 "Sconto Alto" if pred > 0.7 else 
                                 "Sconto Medio" if pred > 0.4 else 
                                 "Sconto Basso" 
-                                for pred in predictions.flatten()
+                                for pred in pred_flat
                             ]
                         
-                        # Assegna predizioni al dataframe
+                        # Assegna predizioni
                         for idx, pred_label in zip(indices, predicted_labels):
                             merged_df2.at[idx, "Discount Prediction"] = pred_label
                         
-                        st.success(f"✅ Predizioni immagini completate!")
+                        st.success(f"Predizioni completate per {len(predicted_labels)} immagini!")
                         
-                        # Mostra distribuzione predizioni
-                        pred_counts = merged_df2[merged_df2["Discount Prediction"] != "URL non presente"]["Discount Prediction"].value_counts()
-                        st.write("**Distribuzione predizioni immagini:**")
-                        st.write(pred_counts)
+                        # Distribuzione predizioni
+                        pred_counts = merged_df2[
+                            merged_df2["Discount Prediction"].isin(["Sconto Basso", "Sconto Medio", "Sconto Alto"])
+                        ]["Discount Prediction"].value_counts()
+                        
+                        st.write("**Distribuzione predizioni:**")
+                        st.bar_chart(pred_counts)
+                        
                     else:
-                        st.warning("⚠️ Nessuna immagine valida processata")
+                        st.warning("Nessuna immagine valida processata. Verifica:")
+                        st.markdown("""
+                        - Gli URL sono accessibili pubblicamente?
+                        - Le immagini sono in formato JPEG/PNG?
+                        - C'è un firewall/proxy che blocca le richieste?
+                        """)
                         merged_df2["Discount Prediction"] = "Errore nel download"
                 else:
-                    st.warning("ℹ️ Nessun articolo con URL immagini validi trovato")
-                
-            except ImportError as e:
-                st.error(f"❌ Libreria mancante: {e}")
-                st.info("Assicurati che tensorflow sia installato: pip install tensorflow")
-                merged_df2["Image URL"] = "URL non presente"
-                merged_df2["Discount Prediction"] = "Errore: tensorflow non disponibile"
+                    st.warning("Nessun articolo con URL immagini validi trovato")
+                    st.write("**Valori nella colonna Image URL:**")
+                    st.write(merged_df2["Image URL"].value_counts().head(10))
                 
             except Exception as e:
-                st.error(f"❌ Errore nell'elaborazione delle immagini: {str(e)}")
-                st.code(f"Tipo errore: {type(e).__name__}\nDettagli: {str(e)}", language="python")
-                merged_df2["Image URL"] = merged_df2.get("Image URL", "URL non presente")
-                merged_df2["Discount Prediction"] = f"Errore predizione: {str(e)[:50]}"
+                st.error(f"Errore nell'elaborazione delle immagini: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc(), language="python")
+                merged_df2["Image URL"] = merged_df2.get("Image URL", "Errore")
+                merged_df2["Discount Prediction"] = f"Errore: {str(e)[:100]}"
                 
         elif keras_model and images_df is None:
-            st.warning("⚠️ Modello Keras caricato ma file immagini mancante. Predizioni immagini non disponibili.")
+            st.warning("Modello Keras caricato ma file immagini mancante")
             merged_df2["Image URL"] = "File immagini non caricato"
             merged_df2["Discount Prediction"] = "File immagini mancante"
         else:
-            # Nessun modello Keras caricato
             merged_df2["Image URL"] = "Modello non caricato"
             merged_df2["Discount Prediction"] = "-"
     
@@ -974,6 +1027,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
