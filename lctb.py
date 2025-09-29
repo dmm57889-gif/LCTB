@@ -49,8 +49,8 @@ pkl_model = st.sidebar.file_uploader("Carica modello PKL (.pkl)", type=['pkl'], 
 
 # Filtri per settimane
 st.sidebar.subheader("📅 Filtri Temporali")
-start_week = st.sidebar.text_input("Settimana iniziale (AAAA-WW):", placeholder="2024-01")
-end_week = st.sidebar.text_input("Settimana finale (AAAA-WW):", placeholder="2024-52")
+start_week = st.sidebar.text_input("Settimana iniziale (AAAA-WW):", placeholder="2025-19")
+end_week = st.sidebar.text_input("Settimana finale (AAAA-WW):", placeholder="2025-28")
 
 # Funzioni di utilità
 def is_valid_yearweek(yearweek):
@@ -845,8 +845,8 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                     
                     st.info(f"Elaborazione {len(merged_df2)} righe in parallelo...")
                     
-                    # Download parallelo con meno worker per evitare rate limiting
-                    with ThreadPoolExecutor(max_workers=5) as executor:
+                    # Download parallelo con 20 worker
+                    with ThreadPoolExecutor(max_workers=20) as executor:
                         future_to_info = {
                             executor.submit(download_and_preprocess_local, idx, row["Image URL"], row["Cod Category"], session): idx 
                             for idx, row in merged_df2.iterrows()
@@ -1070,6 +1070,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
