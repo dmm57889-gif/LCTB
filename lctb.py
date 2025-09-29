@@ -28,6 +28,19 @@ PngImagePlugin.MAX_TEXT_CHUNK = 10000000
 st.title("💰 Generatore proposta Last Chance To Buy")
 st.markdown("---")
 
+import streamlit as st
+
+# Mostra versioni librerie
+if st.sidebar.checkbox("🔍 Mostra info ambiente"):
+    import sklearn
+    import joblib
+    import tensorflow as tf
+    
+    st.sidebar.write(f"**scikit-learn:** {sklearn.__version__}")
+    st.sidebar.write(f"**joblib:** {joblib.__version__}")
+    st.sidebar.write(f"**tensorflow:** {tf.__version__}")
+    st.sidebar.write(f"**Python:** {sys.version}")
+
 # Sidebar per input utente
 st.sidebar.header("📁 Caricamento File")
 
@@ -875,5 +888,6 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
