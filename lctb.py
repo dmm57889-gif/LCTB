@@ -720,7 +720,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         progress_bar.progress(90)
         
-        # Predizioni opzionali con modello Keras
+       # Predizioni opzionali con modello Keras
         if keras_model and images_df is not None:
             status_text.text("🤖 Elaborazione predizioni immagini...")
             try:
@@ -732,7 +732,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                 import tensorflow as tf
                 model = tf.keras.models.load_model("temp_model.keras")
                 
-                st.success(f"✅ Modello Keras caricato. Input shape: {model.input_shape}")
+                st.success(f"Modello Keras caricato. Input shape: {model.input_shape}")
                 
                 # Prepara dati immagini
                 images_df.rename(columns={"Item": "Item Code"}, inplace=True)
@@ -740,123 +740,181 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                 merged_df2.rename(columns={"Picture": "Image URL"}, inplace=True)
                 merged_df2["Image URL"] = merged_df2["Image URL"].fillna("URL non presente")
                 
-                # Funzione preprocessing (come nell'originale)
-                def preprocess_image_local(image, target_size=(224, 224)):
-                    img = image.copy()
-                    img.thumbnail(target_size, Image.LANCZOS)
-                    new_img = Image.new("RGB", target_size)
-                    left = (target_size[0] - img.size[0]) // 2
-                    top = (target_size[1] - img.size[1]) // 2
-                    new_img.paste(img, (left, top))
-                    return new_img
+                # Conta URL validi prima di iniziare
+                valid_urls = merged_df2[
+                    (merged_df2["Image URL"] != "URL non presente") & 
+                    (merged_df2["Image URL"].notna())
+                ]
+                st.write(f"URL validi nel dataframe: {len(valid_urls)}/{len(merged_df2)}")
                 
-                # Funzione download (come nell'originale, ma con session passata)
-                def download_and_preprocess_local(index, url, category, session):
-                    if url == "URL non presente":
-                        return None
-                    try:
-                        response = session.get(url, timeout=30)  # Ridotto da 100000 a 30 per Streamlit
-                        if response.status_code == 200:
-                            img = Image.open(BytesIO(response.content)).convert("RGB")
-                            img = preprocess_image_local(img, target_size=(224, 224))
-                            img_array = np.array(img) / 255.0
-                            return (index, img_array, category)
-                        else:
-                            return None
-                    except Exception as e:
-                        return None
-                
-                # Setup session
-                session = requests.Session()
-                session.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                })
-                
-                results = []
-                
-                st.info(f"📸 Elaborazione {len(merged_df2)} immagini in parallelo...")
-                
-                # Download parallelo con ThreadPoolExecutor (come nell'originale)
-                with ThreadPoolExecutor(max_workers=20) as executor:
-                    future_to_info = {
-                        executor.submit(download_and_preprocess_local, idx, row["Image URL"], row["Cod Category"], session): idx 
-                        for idx, row in merged_df2.iterrows()
-                    }
-                    
-                    # Progress bar per Streamlit
-                    progress_bar = st.progress(0)
-                    completed = 0
-                    total = len(future_to_info)
-                    
-                    for future in as_completed(future_to_info):
-                        res = future.result()
-                        if res is not None:
-                            results.append(res)
-                        completed += 1
-                        progress_bar.progress(completed / total)
-                    
-                    progress_bar.empty()
-                
-                st.write(f"✅ Download completati: {len(results)}/{len(merged_df2)}")
-                
-                # Ordina risultati per indice
-                results.sort(key=lambda x: x[0])
-                
-                if results:
-                    indices, images_list, categories = zip(*results)
-                    batch_images = np.stack(images_list, axis=0)
-                    
-                    st.info(f"🔮 Generazione predizioni per {len(batch_images)} immagini...")
-                    st.write(f"Shape batch: {batch_images.shape}")
-                    
-                    # Predizione in batch (come nell'originale)
-                    predictions = model.predict(batch_images, verbose=0)
-                    
-                    st.write(f"Shape predizioni: {predictions.shape}")
-                    
-                    # Applica soglie specifiche per categoria (come nell'originale)
-                    pred_dict = {}
-                    soglie_per_categoria = {31: 0.57, 32: 0.70, 33: 0.75}
-                    
-                    for idx, pred, cat in zip(indices, predictions, categories):
-                        soglia = soglie_per_categoria.get(cat, 0.75)
-                        pred_value = float(pred[0])
-                        pred_dict[idx] = "Potenzialmente impattante" if pred_value >= soglia else "Potenzialmente non impattante"
-                    
-                    # Inserisce predizioni nel dataframe
-                    merged_df2["Discount Prediction"] = merged_df2.index.map(
-                        lambda idx: pred_dict.get(idx, "Prediction not available")
-                    )
-                    
-                    st.success("✅ Predizioni immagini completate!")
-                    
-                    # Statistiche
-                    pred_counts = merged_df2["Discount Prediction"].value_counts()
-                    st.write("**Distribuzione predizioni:**")
-                    for label, count in pred_counts.items():
-                        if label != "Prediction not available":
-                            st.write(f"- {label}: {count} ({count/len(merged_df2)*100:.1f}%)")
-                    
-                    # Mostra esempi di valori predetti
-                    sample_predictions = [(idx, float(pred[0]), cat) for idx, pred, cat in list(zip(indices, predictions, categories))[:5]]
-                    with st.expander("📊 Esempi valori predetti (prime 5 immagini)", expanded=False):
-                        for idx, val, cat in sample_predictions:
-                            soglia = soglie_per_categoria.get(cat, 0.75)
-                            st.write(f"Indice {idx} (Cat {cat}): {val:.4f} (soglia: {soglia}) → {pred_dict[idx]}")
-                    
+                if len(valid_urls) == 0:
+                    st.error("Nessun URL valido trovato nel merge!")
+                    st.write("Verifica che:")
+                    st.write("- Il file immagini contenga la colonna 'Picture'")
+                    st.write("- Gli Item Code nel file immagini corrispondano a quelli nel dataframe principale")
+                    merged_df2["Discount Prediction"] = "Nessun URL disponibile"
                 else:
-                    merged_df2["Discount Prediction"] = "Prediction not available"
-                    st.warning("⚠️ Nessuna immagine è stata processata correttamente")
+                    # Mostra esempi
+                    st.write("Esempi di URL:")
+                    for url in valid_urls["Image URL"].head(3):
+                        st.text(url[:100])
+                    
+                    # Funzione preprocessing
+                    def preprocess_image_local(image, target_size=(224, 224)):
+                        img = image.copy()
+                        img.thumbnail(target_size, Image.LANCZOS)
+                        new_img = Image.new("RGB", target_size)
+                        left = (target_size[0] - img.size[0]) // 2
+                        top = (target_size[1] - img.size[1]) // 2
+                        new_img.paste(img, (left, top))
+                        return new_img
+                    
+                    # Contatori per debug
+                    error_counts = {
+                        'url_non_presente': 0,
+                        'http_error': 0,
+                        'timeout': 0,
+                        'image_error': 0,
+                        'other': 0,
+                        'success': 0
+                    }
+                    error_samples = []
+                    
+                    # Funzione download con logging
+                    def download_and_preprocess_local(index, url, category, session):
+                        if url == "URL non presente" or pd.isna(url):
+                            error_counts['url_non_presente'] += 1
+                            return None
+                        try:
+                            response = session.get(url, timeout=30)
+                            if response.status_code == 200:
+                                img = Image.open(BytesIO(response.content)).convert("RGB")
+                                img = preprocess_image_local(img, target_size=(224, 224))
+                                img_array = np.array(img) / 255.0
+                                error_counts['success'] += 1
+                                return (index, img_array, category)
+                            else:
+                                error_counts['http_error'] += 1
+                                if len(error_samples) < 10:
+                                    error_samples.append(f"HTTP {response.status_code}: {url[:60]}")
+                                return None
+                        except requests.exceptions.Timeout:
+                            error_counts['timeout'] += 1
+                            if len(error_samples) < 10:
+                                error_samples.append(f"Timeout: {url[:60]}")
+                            return None
+                        except (Image.UnidentifiedImageError, OSError) as e:
+                            error_counts['image_error'] += 1
+                            if len(error_samples) < 10:
+                                error_samples.append(f"Errore immagine: {url[:60]}")
+                            return None
+                        except Exception as e:
+                            error_counts['other'] += 1
+                            if len(error_samples) < 10:
+                                error_samples.append(f"{type(e).__name__}: {url[:60]}")
+                            return None
+                    
+                    # Setup session
+                    session = requests.Session()
+                    session.headers.update({
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    })
+                    
+                    results = []
+                    
+                    st.info(f"Elaborazione {len(merged_df2)} righe in parallelo...")
+                    
+                    # Download parallelo
+                    with ThreadPoolExecutor(max_workers=20) as executor:
+                        future_to_info = {
+                            executor.submit(download_and_preprocess_local, idx, row["Image URL"], row["Cod Category"], session): idx 
+                            for idx, row in merged_df2.iterrows()
+                        }
+                        
+                        progress_bar = st.progress(0)
+                        completed = 0
+                        total = len(future_to_info)
+                        
+                        for future in as_completed(future_to_info):
+                            res = future.result()
+                            if res is not None:
+                                results.append(res)
+                            completed += 1
+                            if completed % 10 == 0 or completed == total:
+                                progress_bar.progress(completed / total)
+                        
+                        progress_bar.empty()
+                    
+                    # Mostra statistiche dettagliate
+                    st.write("**Risultati elaborazione:**")
+                    st.write(f"- Successi: {error_counts['success']}")
+                    st.write(f"- URL non presente/nullo: {error_counts['url_non_presente']}")
+                    st.write(f"- Errori HTTP: {error_counts['http_error']}")
+                    st.write(f"- Timeout: {error_counts['timeout']}")
+                    st.write(f"- Errori immagine: {error_counts['image_error']}")
+                    st.write(f"- Altri errori: {error_counts['other']}")
+                    
+                    if error_samples:
+                        with st.expander("Esempi di errori", expanded=True):
+                            for sample in error_samples:
+                                st.text(sample)
+                    
+                    # Ordina risultati
+                    results.sort(key=lambda x: x[0])
+                    
+                    if results:
+                        indices, images_list, categories = zip(*results)
+                        batch_images = np.stack(images_list, axis=0)
+                        
+                        st.info(f"Generazione predizioni per {len(batch_images)} immagini...")
+                        st.write(f"Shape batch: {batch_images.shape}")
+                        
+                        # Predizione
+                        predictions = model.predict(batch_images, verbose=0)
+                        st.write(f"Shape predizioni: {predictions.shape}")
+                        
+                        # Soglie per categoria
+                        pred_dict = {}
+                        soglie_per_categoria = {31: 0.57, 32: 0.70, 33: 0.75}
+                        
+                        for idx, pred, cat in zip(indices, predictions, categories):
+                            soglia = soglie_per_categoria.get(cat, 0.75)
+                            pred_value = float(pred[0])
+                            pred_dict[idx] = "Potenzialmente impattante" if pred_value >= soglia else "Potenzialmente non impattante"
+                        
+                        # Assegna predizioni
+                        merged_df2["Discount Prediction"] = merged_df2.index.map(
+                            lambda idx: pred_dict.get(idx, "Prediction not available")
+                        )
+                        
+                        st.success("Predizioni immagini completate!")
+                        
+                        # Statistiche
+                        pred_counts = merged_df2["Discount Prediction"].value_counts()
+                        st.write("**Distribuzione predizioni:**")
+                        for label, count in pred_counts.items():
+                            st.write(f"- {label}: {count} ({count/len(merged_df2)*100:.1f}%)")
+                        
+                        # Esempi
+                        sample_predictions = [(idx, float(pred[0]), cat) for idx, pred, cat in list(zip(indices, predictions, categories))[:5]]
+                        with st.expander("Esempi valori predetti (prime 5)", expanded=False):
+                            for idx, val, cat in sample_predictions:
+                                soglia = soglie_per_categoria.get(cat, 0.75)
+                                st.write(f"Indice {idx} (Cat {cat}): {val:.4f} (soglia: {soglia}) → {pred_dict[idx]}")
+                        
+                    else:
+                        merged_df2["Discount Prediction"] = "Prediction not available"
+                        st.warning("Nessuna immagine è stata processata correttamente. Vedi dettagli errori sopra.")
                 
             except Exception as e:
-                st.error(f"❌ Errore nell'elaborazione delle immagini: {str(e)}")
+                st.error(f"Errore nell'elaborazione delle immagini: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc(), language="python")
                 merged_df2["Image URL"] = merged_df2.get("Image URL", "URL non presente")
                 merged_df2["Discount Prediction"] = "Prediction not available"
                 
         elif keras_model and images_df is None:
-            st.warning("⚠️ Modello Keras caricato ma file immagini mancante")
+            st.warning("Modello Keras caricato ma file immagini mancante")
             merged_df2["Image URL"] = "File immagini non caricato"
             merged_df2["Discount Prediction"] = "Prediction not available"
         else:
@@ -990,6 +1048,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
