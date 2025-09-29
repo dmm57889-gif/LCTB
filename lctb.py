@@ -656,7 +656,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         # Per Streamlit, selezioniamo tutti i segmenti disponibili per default
         selected_segments = st.multiselect(
-            "Seleziona i segmenti da includere:", 
+            "Segmenti inclusi:", 
             unique_segments, 
             default=unique_segments,
             key="segments_selector"
@@ -1099,6 +1099,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
