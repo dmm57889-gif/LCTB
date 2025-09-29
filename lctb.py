@@ -949,6 +949,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                           nei domini accessibili dalla rete aziendale, bisogna concedere l'accesso ai vari URL delle immagini)
                         - SE FOSSE NECESSARIO INCLUDERE LA PARTE PREDITTIVA NELL'OUTPUT, ESEGUIRE IL CODICE DISPONIBILE AL SEGUENTE PERCORSO:
                             > N:\DemandMerchandising\Analisi Lorenzo\FILE APP, CODICE E CREDENZIALI\File sconti\Codice LCTB
+                          
                           ESEGUENDO IN LOCALE QUESTO CODICE DA UN COMPUTER AZIENDALE NON CI SONO PROBLEMI DI SCARICAMENTO DELLE IMMAGINI, IN QUANTO LE RICHIESTE
                           VENGONO FATTE DIRETTAMENTE DALL'INTERNO DELLA RETE AZIENDALE.
                         
@@ -1098,6 +1099,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
