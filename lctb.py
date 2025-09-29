@@ -925,7 +925,35 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                         
                     else:
                         merged_df2["Discount Prediction"] = "Prediction not available"
-                        st.warning("Nessuna immagine è stata processata correttamente. Vedi dettagli errori sopra.")
+                        st.warning("""
+                        **Analisi del problema:**
+                        
+                        Se la maggior parte degli errori sono di tipo "Errori HTTP", le cause più probabili sono:
+                        
+                        1. **Restrizioni di rete a livello infrastrutturale**
+                           - Firewall aziendale che blocca richieste da Streamlit Cloud
+                           - CDN che richiede autenticazione specifica
+                           - Protezioni anti-bot attive sul server delle immagini
+                        
+                        2. **URL non accessibili pubblicamente**
+                           - Le immagini richiedono autenticazione (token, cookie)
+                           - Gli URL sono scaduti o temporanei
+                           - Restrizioni geografiche o IP whitelisting
+                        
+                        **Azioni consigliate:**
+                        
+                        - Verificare che gli URL siano accessibili pubblicamente (testare aprendo un URL nel browser)
+                        - Se le immagini sono dietro autenticazione, contattare il team IT per ottenere credenziali API o estendere i permessi di accesso
+                        - Considerare di hostare le immagini su un CDN pubblico o storage accessibile
+                        - Verificare con il team IT se Streamlit Cloud è autorizzato ad accedere alle risorse aziendali (non basta includerlo
+                          nei domini accessibili dalla rete aziendale, bisogna concedere l'accesso ai vari URL delle immagini)
+                        - SE FOSSE NECESSARIO INCLUDERE LA PARTE PREDITTIVA NELL'OUTPUT, ESEGUIRE IL CODICE DISPONIBILE AL SEGUENTE PERCORSO:
+                            > N:\DemandMerchandising\Analisi Lorenzo\FILE APP, CODICE E CREDENZIALI\File sconti\Codice LCTB
+                          ESEGUENDO IN LOCALE QUESTO CODICE DA UN COMPUTER AZIENDALE NON CI SONO PROBLEMI DI SCARICAMENTO DELLE IMMAGINI, IN QUANTO LE RICHIESTE
+                          VENGONO FATTE DIRETTAMENTE DALL'INTERNO DELLA RETE AZIENDALE.
+                        
+                        Per continuare senza predizioni immagini, puoi procedere con l'elaborazione degli altri dati.
+                        """)
                 
             except Exception as e:
                 st.error(f"Errore nell'elaborazione delle immagini: {str(e)}")
@@ -1070,6 +1098,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
