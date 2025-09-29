@@ -2,7 +2,7 @@ streamlit
 pandas
 numpy
 tensorflow
-scikit-learn
+scikit-learn==1.7.2 
 joblib
 openpyxl
 pillow
