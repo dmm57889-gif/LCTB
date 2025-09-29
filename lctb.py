@@ -720,7 +720,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         
         progress_bar.progress(90)
         
-       # Predizioni opzionali con modello Keras
+        # Predizioni opzionali con modello Keras
         if keras_model and images_df is not None:
             status_text.text("🤖 Elaborazione predizioni immagini...")
             try:
@@ -780,14 +780,26 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                     }
                     error_samples = []
                     
-                    # Funzione download con logging
+                    # Funzione download con logging e delay
+                    import time
+                    import random
+                    
                     def download_and_preprocess_local(index, url, category, session):
                         if url == "URL non presente" or pd.isna(url):
                             error_counts['url_non_presente'] += 1
                             return None
+                        
+                        # Delay random per evitare rate limiting
+                        time.sleep(random.uniform(0.1, 0.3))
+                        
                         try:
-                            response = session.get(url, timeout=30)
+                            response = session.get(url, timeout=30, allow_redirects=True)
                             if response.status_code == 200:
+                                # Verifica content-type
+                                content_type = response.headers.get('content-type', '').lower()
+                                if 'image' not in content_type and len(error_samples) < 10:
+                                    error_samples.append(f"Non è un'immagine ({content_type}): {url[:60]}")
+                                
                                 img = Image.open(BytesIO(response.content)).convert("RGB")
                                 img = preprocess_image_local(img, target_size=(224, 224))
                                 img_array = np.array(img) / 255.0
@@ -814,18 +826,27 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
                                 error_samples.append(f"{type(e).__name__}: {url[:60]}")
                             return None
                     
-                    # Setup session
+                    # Setup session con headers completi
                     session = requests.Session()
                     session.headers.update({
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'Connection': 'keep-alive',
+                        'Referer': 'https://www.google.com/'
                     })
+                    # Disabilita verifica SSL se necessario (solo per test)
+                    session.verify = False
+                    import urllib3
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                     
                     results = []
                     
                     st.info(f"Elaborazione {len(merged_df2)} righe in parallelo...")
                     
-                    # Download parallelo
-                    with ThreadPoolExecutor(max_workers=20) as executor:
+                    # Download parallelo con meno worker per evitare rate limiting
+                    with ThreadPoolExecutor(max_workers=5) as executor:
                         future_to_info = {
                             executor.submit(download_and_preprocess_local, idx, row["Image URL"], row["Cod Category"], session): idx 
                             for idx, row in merged_df2.iterrows()
@@ -920,6 +941,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
         else:
             merged_df2["Image URL"] = "Modello non caricato"
             merged_df2["Discount Prediction"] = "Prediction not available"
+        
     
         
         if pkl_model:
@@ -1048,6 +1070,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
