@@ -42,7 +42,7 @@ segment_file = st.sidebar.file_uploader("Carica file segment.xlsx", type=['xlsx'
 
 # File opzionali
 st.sidebar.subheader("📊 File Opzionali")
-images_file = st.sidebar.file_uploader("Carica file immagini FW 25.xlsx", type=['xlsx'], key="images")
+images_file = st.sidebar.file_uploader("Carica file immagini articoli", type=['xlsx'], key="images")
 sequence_file = st.sidebar.file_uploader("Carica file sequenza articoli sconto.xlsx (opzionale)", type=['xlsx'], key="sequence")
 keras_model = st.sidebar.file_uploader("Carica modello Keras (.keras)", type=['keras'], key="keras")
 pkl_model = st.sidebar.file_uploader("Carica modello PKL (.pkl)", type=['pkl'], key="pkl")
@@ -1099,6 +1099,7 @@ if st.button("🚀 Avvia Elaborazione", type="primary"):
 
     st.sidebar.markdown("---")
     st.sidebar.info("💡 **Suggerimento**: Assicurati che tutti i file abbiano la struttura colonne corretta prima del caricamento.")
+
 
 
 
